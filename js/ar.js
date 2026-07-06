@@ -20,6 +20,7 @@ document.addEventListener("DOMContentLoaded", () => {
   
   const catalogDrawer = document.getElementById("catalog-drawer");
   const dashboardDetails = document.getElementById("dashboard-details");
+  const clearHistoryBtn = document.getElementById("btn-clear-history");
   
   let activeProduct = PRODUCTS[0];
   let showSkeleton = false;
@@ -27,43 +28,206 @@ document.addEventListener("DOMContentLoaded", () => {
   let trackingActive = false;
   let activeStream = null;
   let hasBypassed = false;
+  let poseInstance = null;
+
+  const STATE_IDLE = "idle";
+  const STATE_SCANNING = "scanning";
+  const STATE_LOADING = "loading";
+  const STATE_TRACKING = "tracking";
+  let currentState = STATE_IDLE;
   
   // Pre-load garment overlay images
   const garmentImages = {};
   PRODUCTS.forEach(p => {
-    const img = new Image();
-    img.src = p.overlayImage;
-    garmentImages[p.id] = img;
+    if (p.overlayImage) {
+      const img = new Image();
+      img.src = p.overlayImage;
+      garmentImages[p.id] = img;
+    }
   });
+
+  // LocalStorage History Helpers
+  function getHistory() {
+    const hist = localStorage.getItem("greenwear_history");
+    return hist ? JSON.parse(hist) : [];
+  }
+
+  function saveToHistory(id) {
+    const hist = getHistory();
+    if (!hist.includes(id)) {
+      hist.push(id);
+      localStorage.setItem("greenwear_history", JSON.stringify(hist));
+    }
+    renderWardrobe();
+  }
+
+  function clearHistory() {
+    localStorage.removeItem("greenwear_history");
+    renderWardrobe();
+    // Re-trigger matching for active product since history changed
+    if (hasBypassed) {
+      loadProductDirect(activeProduct);
+    } else if (activeStream && currentState === STATE_TRACKING) {
+      api.recommendOutfit(activeProduct, [])
+        .then(recommendation => updateRecommendationDetails(recommendation));
+    }
+  }
+
+  function renderWardrobe() {
+    const history = getHistory();
+    const drawer = document.getElementById("wardrobe-drawer");
+    const grid = document.getElementById("wardrobe-history-grid");
+    const emptyMsg = document.getElementById("empty-wardrobe-msg");
+    
+    if (!drawer) return;
+    drawer.style.display = "block"; // Always visible when dashboard/catalog opens
+    
+    if (history.length === 0) {
+      if (grid) grid.innerHTML = "";
+      if (emptyMsg) emptyMsg.style.display = "block";
+      return;
+    }
+    
+    if (emptyMsg) emptyMsg.style.display = "none";
+    if (grid) {
+      grid.innerHTML = history.map(id => {
+        const product = PRODUCTS.find(p => p.id === id);
+        if (!product) return "";
+        let categoryIcon = "👕";
+        if (product.category === "Bottom") categoryIcon = "👖";
+        if (product.category === "Dress") categoryIcon = "👗";
+        if (product.category === "Outer") categoryIcon = "🧥";
+        
+        const isActive = activeProduct.id === product.id ? "active" : "";
+        return `
+          <div class="garment-card scanned-item ${isActive}" data-id="${product.id}">
+            <span class="garment-card-icon">${categoryIcon}</span>
+            <span class="garment-card-name">${product.name}</span>
+            <span class="scanned-color-dot" style="display:inline-block; width:8px; height:8px; border-radius:50%; background-color:${product.color}; margin-top:2px;"></span>
+          </div>
+        `;
+      }).join('');
+      
+      // Hook up clicks on Wardrobe items
+      document.querySelectorAll(".scanned-item").forEach(card => {
+        card.addEventListener("click", (e) => {
+          const productId = e.currentTarget.getAttribute("data-id");
+          selectProduct(productId);
+        });
+      });
+    }
+  }
 
   // 1. Render Catalog Selector Grid
   const catalogGrid = document.getElementById("garment-selector-grid");
   if (catalogGrid) {
-    catalogGrid.innerHTML = PRODUCTS.map((product, idx) => `
-      <div class="garment-card ${idx === 0 ? 'active' : ''}" data-id="${product.id}">
-        <span class="garment-card-icon">${product.category === 'Top' ? '👕' : '👗'}</span>
-        <span class="garment-card-name">${product.name}</span>
-      </div>
-    `).join('');
+    catalogGrid.innerHTML = PRODUCTS.map((product, idx) => {
+      let categoryIcon = "👕";
+      if (product.category === "Bottom") categoryIcon = "👖";
+      if (product.category === "Dress") categoryIcon = "👗";
+      if (product.category === "Outer") categoryIcon = "🧥";
+      
+      return `
+        <div class="garment-card catalog-item ${idx === 0 ? 'active' : ''}" data-id="${product.id}">
+          <span class="garment-card-icon">${categoryIcon}</span>
+          <span class="garment-card-name">${product.name}</span>
+        </div>
+      `;
+    }).join('');
     
     // Select product click handlers
-    document.querySelectorAll(".garment-card").forEach(card => {
+    document.querySelectorAll(".catalog-item").forEach(card => {
       card.addEventListener("click", (e) => {
-        document.querySelectorAll(".garment-card").forEach(c => c.classList.remove("active"));
-        const selectedCard = e.currentTarget;
-        selectedCard.classList.add("active");
-        
-        const productId = selectedCard.getAttribute("data-id");
-        activeProduct = PRODUCTS.find(p => p.id === productId);
-        updateDashboard(activeProduct);
+        const productId = e.currentTarget.getAttribute("data-id");
+        selectProduct(productId);
       });
     });
   }
 
-  // Initialize Dashboard with first product (but hidden initially until activated or bypassed)
-  updateDashboard(activeProduct);
+  // Select Product Flow Control
+  function selectProduct(productId) {
+    activeProduct = PRODUCTS.find(p => p.id === productId);
+    
+    // Update active class on selector grids
+    document.querySelectorAll(".garment-card").forEach(card => {
+      if (card.getAttribute("data-id") === productId) {
+        card.classList.add("active");
+      } else {
+        card.classList.remove("active");
+      }
+    });
 
-  function updateDashboard(product) {
+    if (activeStream && !hasBypassed) {
+      triggerScanAndLoad(activeProduct);
+    } else {
+      loadProductDirect(activeProduct);
+    }
+  }
+
+  // Trigger simulated tag scan cycle
+  function triggerScanAndLoad(product) {
+    currentState = STATE_SCANNING;
+    trackingActive = false;
+    trackingStatusBadge.textContent = "Scanning Tag...";
+    trackingStatusBadge.className = "hud-status";
+    
+    dashboardDetails.style.display = "none";
+    scanFeedback.style.display = "block";
+    scanFeedback.textContent = `🔍 Memindai Tag: ${product.name}...`;
+    
+    setTimeout(() => {
+      if (activeProduct.id !== product.id) return; // Prevent race conditions
+      
+      currentState = STATE_LOADING;
+      scanFeedback.textContent = "⌛ Mengambil data produk dari server...";
+      
+      // Call mock api to simulate database lookup
+      api.fetchProductById(product.id)
+        .then(fetchedProduct => {
+          if (activeProduct.id !== product.id) return;
+          
+          saveToHistory(fetchedProduct.id);
+          updateDashboardDetails(fetchedProduct);
+          
+          // Call matcher to retrieve outfit suggestions
+          return api.recommendOutfit(fetchedProduct, getHistory());
+        })
+        .then(recommendation => {
+          if (activeProduct.id !== product.id) return;
+          
+          updateRecommendationDetails(recommendation);
+          
+          scanFeedback.style.display = "none";
+          dashboardDetails.style.display = "block";
+          currentState = STATE_TRACKING;
+        })
+        .catch(err => {
+          console.error("API error:", err);
+          scanFeedback.textContent = "⚠️ Gagal mengambil data produk.";
+        });
+    }, 2200);
+  }
+
+  // Fetch product directly when bypassing camera
+  function loadProductDirect(product) {
+    dashboardDetails.style.display = "block";
+    
+    api.fetchProductById(product.id)
+      .then(fetchedProduct => {
+        saveToHistory(fetchedProduct.id);
+        updateDashboardDetails(fetchedProduct);
+        return api.recommendOutfit(fetchedProduct, getHistory());
+      })
+      .then(recommendation => {
+        updateRecommendationDetails(recommendation);
+        if (hasBypassed) {
+          drawBypassScreen();
+        }
+      })
+      .catch(err => console.error("Error loading direct product:", err));
+  }
+
+  function updateDashboardDetails(product) {
     document.getElementById("eco-category").textContent = product.category;
     document.getElementById("eco-name").textContent = product.name;
     document.getElementById("eco-description").textContent = product.description;
@@ -74,7 +238,7 @@ document.addEventListener("DOMContentLoaded", () => {
     
     document.getElementById("eco-care").textContent = product.careGuide;
     
-    // Animate Circular Progress Rings
+    // Circular meters
     const maxWaterSaved = 100;
     const maxCarbonSaved = 120;
     
@@ -83,19 +247,28 @@ document.addEventListener("DOMContentLoaded", () => {
     
     updateCirclePercent("carbon-fill", "carbon-percent", product.carbonSavings, maxCarbonSaved);
     document.getElementById("carbon-saved-desc").textContent = `Kurang ${product.carbonFootprint}kg CO₂`;
+  }
+
+  function updateRecommendationDetails(recommendation) {
+    let mixIcon = "👖";
+    if (recommendation.category === "Outer") mixIcon = "🧥";
+    if (recommendation.category === "Top") mixIcon = "👕";
+    if (recommendation.category === "Dress") mixIcon = "👗";
     
-    // Render Mix & Match recommendation (Flowchart Steps 9 & 10)
-    if (product.mixMatch) {
-      const mix = product.mixMatch;
-      let mixIcon = "👖"; // default Bottom
-      if (mix.category === "Outer") mixIcon = "🧥";
-      if (mix.category === "Top") mixIcon = "👕";
-      if (mix.category === "Dress") mixIcon = "👗";
-      
-      document.getElementById("mix-icon").textContent = mixIcon;
-      document.getElementById("mix-name").textContent = mix.name;
-      document.getElementById("mix-material").textContent = `${mix.material} • Hemat ${mix.waterUsage}L air`;
-      document.getElementById("mix-category").textContent = mix.category;
+    document.getElementById("mix-icon").textContent = mixIcon;
+    document.getElementById("mix-name").textContent = recommendation.name;
+    document.getElementById("mix-material").textContent = `${recommendation.material} • Hemat ${recommendation.waterUsage}L air`;
+    document.getElementById("mix-category").textContent = recommendation.category;
+    
+    const badge = document.getElementById("mix-ownership-badge");
+    if (badge) {
+      if (recommendation.inWardrobe) {
+        badge.textContent = "In Wardrobe";
+        badge.className = "badge-ownership owned";
+      } else {
+        badge.textContent = "Catalog Suggestion";
+        badge.className = "badge-ownership suggestion";
+      }
     }
   }
 
@@ -117,6 +290,7 @@ document.addEventListener("DOMContentLoaded", () => {
     cameraCover.style.display = "none";
     loadingOverlay.style.display = "flex";
     fallbackUI.style.display = "none";
+    hasBypassed = false;
     
     navigator.mediaDevices.getUserMedia({ 
       video: { 
@@ -133,21 +307,12 @@ document.addEventListener("DOMContentLoaded", () => {
         canvasElement.width = webcamElement.videoWidth;
         canvasElement.height = webcamElement.videoHeight;
         
-        // Show scan tracer feedback banner initially (Flowchart Step 5a)
-        scanFeedback.style.display = "block";
-        scanFeedback.textContent = "🔍 Memindai Tag Pakaian...";
+        loadingOverlay.style.display = "none";
+        cameraHud.style.display = "flex";
+        catalogDrawer.style.display = "block";
         
-        // Simulate Scan detection loop (Step 5)
-        setTimeout(() => {
-          scanFeedback.style.display = "none";
-          // Transition to success & retrieve product data (Steps 6 & 7)
-          loadingOverlay.style.display = "none";
-          cameraHud.style.display = "flex";
-          catalogDrawer.style.display = "block";
-          dashboardDetails.style.display = "block";
-          
-          startMediaPipe();
-        }, 2200);
+        triggerScanAndLoad(activeProduct);
+        startMediaPipe();
       });
     })
     .catch((err) => {
@@ -159,39 +324,39 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // Bypass webcam (directly skips to product detail/mixmatch display)
   function bypassCamera() {
     hasBypassed = true;
     cameraCover.style.display = "none";
     fallbackUI.style.display = "none";
     loadingOverlay.style.display = "none";
     
-    // Open features panels directly
     catalogDrawer.style.display = "block";
-    dashboardDetails.style.display = "block";
+    renderWardrobe();
     
-    // Draw static helper text on canvas indicating webcam bypassed
-    canvasElement.width = 640;
-    canvasElement.height = 480;
-    drawBypassScreen();
+    loadProductDirect(activeProduct);
   }
 
   function drawBypassScreen() {
+    canvasElement.width = 640;
+    canvasElement.height = 480;
+    
     canvasCtx.fillStyle = "#efeae0";
     canvasCtx.fillRect(0, 0, canvasElement.width, canvasElement.height);
     
     canvasCtx.fillStyle = "#122c20";
-    canvasCtx.font = "italic 500 1.25rem Lora";
+    canvasCtx.font = "italic 500 1.25rem serif";
     canvasCtx.textAlign = "center";
     canvasCtx.fillText("Kamera AR Dihindari", canvasElement.width / 2, canvasElement.height / 2 - 20);
     
     canvasCtx.fillStyle = "#647d70";
-    canvasCtx.font = "14px Inter";
+    canvasCtx.font = "14px sans-serif";
     canvasCtx.fillText("Memilih produk di katalog kanan untuk melihat data langsung.", canvasElement.width / 2, canvasElement.height / 2 + 10);
   }
 
   // 3. MediaPipe Pose tracking
   function startMediaPipe() {
+    if (poseInstance) return; // Prevent multiple instances
+    
     poseInstance = new Pose({
       locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`
     });
@@ -233,30 +398,35 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
     
-    if (results.poseLandmarks) {
-      if (!trackingActive) {
-        trackingActive = true;
-        trackingStatusBadge.textContent = "Tracking Aktif";
-        trackingStatusBadge.className = "hud-status active";
-        scanFeedback.style.display = "none";
-      }
+    // Only overlay clothes if in STATE_TRACKING
+    if (currentState === STATE_TRACKING) {
+      if (results.poseLandmarks) {
+        if (!trackingActive) {
+          trackingActive = true;
+          trackingStatusBadge.textContent = "Tracking Aktif";
+          trackingStatusBadge.className = "hud-status active";
+          scanFeedback.style.display = "none";
+        }
 
-      if (showSkeleton) {
-        drawSkeleton(results.poseLandmarks);
+        if (showSkeleton) {
+          drawSkeleton(results.poseLandmarks);
+        }
+        
+        drawGarmentOverlay(results.poseLandmarks);
+        
+      } else {
+        if (trackingActive) {
+          trackingActive = false;
+          trackingStatusBadge.textContent = "Mencari Tubuh...";
+          trackingStatusBadge.className = "hud-status";
+        }
+        
+        scanFeedback.style.display = "block";
+        scanFeedback.innerHTML = "⚠️ Tubuh tidak terdeteksi. Posisikan badan di tengah.";
       }
-      
-      drawGarmentOverlay(results.poseLandmarks);
-      
     } else {
-      if (trackingActive) {
-        trackingActive = false;
-        trackingStatusBadge.textContent = "Mencari Tubuh...";
-        trackingStatusBadge.className = "hud-status";
-      }
-      
-      // Step 5a: Tag/Body not detected feedback warning
-      scanFeedback.style.display = "block";
-      scanFeedback.innerHTML = "⚠️ Tag/Tubuh tidak terdeteksi. Posisikan badan di tengah.";
+      // In Scanning/Loading state, clear landmarks active status
+      trackingActive = false;
     }
     
     canvasCtx.restore();
@@ -300,11 +470,10 @@ document.addEventListener("DOMContentLoaded", () => {
     
     const garmentImg = garmentImages[activeProduct.id];
     
-    if (garmentImg && garmentImg.complete) {
+    if (garmentImg && garmentImg.complete && garmentImg.width > 0) {
       canvasCtx.save();
       canvasCtx.translate(shoulderX, shoulderY + yOffset);
       canvasCtx.rotate(angle);
-      
       canvasCtx.drawImage(
         garmentImg, 
         -overlayWidth / 2, 
@@ -312,6 +481,21 @@ document.addEventListener("DOMContentLoaded", () => {
         overlayWidth, 
         overlayHeight
       );
+      canvasCtx.restore();
+    } else {
+      // Draw transparent color block representation for newly added products (e.g. Pants, Shawl)
+      canvasCtx.save();
+      canvasCtx.translate(shoulderX, shoulderY + yOffset);
+      canvasCtx.rotate(angle);
+      
+      canvasCtx.fillStyle = "rgba(79, 119, 45, 0.45)"; // Soft green tint
+      canvasCtx.fillRect(-overlayWidth / 2, 0, overlayWidth, overlayHeight);
+      
+      // Draw white text indicating garment area
+      canvasCtx.fillStyle = "#ffffff";
+      canvasCtx.font = "italic bold 10px sans-serif";
+      canvasCtx.textAlign = "center";
+      canvasCtx.fillText(activeProduct.name, 0, overlayHeight / 2);
       canvasCtx.restore();
     }
   }
@@ -365,19 +549,26 @@ document.addEventListener("DOMContentLoaded", () => {
   
   toggleSkeletonBtn.addEventListener("click", () => {
     showSkeleton = !showSkeleton;
-    toggleSkeletonBtn.style.borderColor = showSkeleton ? "var(--accent-glow)" : "var(--border-color)";
-    toggleSkeletonBtn.style.color = showSkeleton ? "var(--accent-glow)" : "var(--text-primary)";
+    toggleSkeletonBtn.style.borderColor = showSkeleton ? "rgba(0, 150, 136, 1)" : "#999999";
+    toggleSkeletonBtn.style.color = showSkeleton ? "rgba(0, 150, 136, 1)" : "#333333";
   });
   
   mirrorBtn.addEventListener("click", () => {
     isMirrored = !isMirrored;
-    mirrorBtn.style.borderColor = isMirrored ? "var(--accent-glow)" : "var(--border-color)";
-    mirrorBtn.style.color = isMirrored ? "var(--accent-glow)" : "var(--text-primary)";
+    mirrorBtn.style.borderColor = isMirrored ? "rgba(0, 150, 136, 1)" : "#999999";
+    mirrorBtn.style.color = isMirrored ? "rgba(0, 150, 136, 1)" : "#333333";
     
     if (hasBypassed) {
       drawBypassScreen();
     }
   });
 
-  // Note: We DO NOT auto-start camera here (Webcam disabled on load per user request).
+  if (clearHistoryBtn) {
+    clearHistoryBtn.addEventListener("click", () => {
+      clearHistory();
+    });
+  }
+
+  // Init dashboard and wardrobe display on startup (idle state)
+  renderWardrobe();
 });

@@ -467,3 +467,37 @@ footer p {
     flex-direction: column;
   }
 }
+
+/* My Wardrobe Scan History Styles */
+.wardrobe-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+
+.wardrobe-header h3 {
+  margin: 0 !important;
+}
+
+/* Plain-Text Compatibility Ownership Badges */
+.badge-ownership {
+  font-size: 0.65rem;
+  font-weight: bold;
+  text-transform: uppercase;
+  padding: 0.15rem 0.35rem;
+  border-radius: 2px;
+}
+
+.badge-ownership.owned {
+  background-color: #e2f0d9;
+  border: 1px solid #385723;
+  color: #385723;
+}
+
+.badge-ownership.suggestion {
+  background-color: #fff3cd;
+  border: 1px solid #ffeeba;
+  color: #856404;
+}
+

@@ -92,6 +92,18 @@
           </div>
         </div>
 
+        <!-- Scan History / My Wardrobe -->
+        <div class="catalog-drawer" id="wardrobe-drawer" style="display: none;">
+          <div class="wardrobe-header">
+            <h3>Lemari Saya (Scanned)</h3>
+            <button class="btn btn-secondary" id="btn-clear-history" style="font-size: 0.7rem; padding: 0.2rem 0.5rem;">Hapus Riwayat</button>
+          </div>
+          <div class="garment-grid" id="wardrobe-history-grid">
+            <!-- Dynamically populated from localStorage -->
+          </div>
+          <div class="empty-wardrobe-msg" id="empty-wardrobe-msg" style="font-size: 0.8rem; color: #888888; text-align: center; margin-top: 0.5rem;">Belum ada pakaian yang dipindai.</div>
+        </div>
+
         <!-- Sustainability Stats Dashboard -->
         <div class="dashboard-card" id="dashboard-details" style="display: none;">
           <div class="dashboard-title-group">
@@ -151,9 +163,12 @@
             <h3>Rekomendasi Outfit (Mix & Match)</h3>
             <div class="mix-match-card">
               <span class="mix-match-icon" id="mix-icon">👖</span>
-              <div class="mix-match-info">
-                <h4 id="mix-name">Memuat Rekomendasi...</h4>
-                <p id="mix-material">-</p>
+              <div class="mix-match-info" style="width: 100%;">
+                <div class="mix-match-header-row" style="display: flex; justify-content: space-between; align-items: flex-start; gap: 0.5rem;">
+                  <h4 id="mix-name" style="margin: 0;">Memuat Rekomendasi...</h4>
+                  <span class="badge-ownership" id="mix-ownership-badge">Catalog Suggestion</span>
+                </div>
+                <p id="mix-material" style="margin: 0.25rem 0;">-</p>
                 <span class="mix-category" id="mix-category">Bottom</span>
               </div>
             </div>
@@ -171,6 +186,7 @@
 
   <!-- Scripts -->
   <script src="js/products.js"></script>
+  <script src="js/api.js"></script>
   <script src="js/ar.js"></script>
 </body>
 </html>

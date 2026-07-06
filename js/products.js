@@ -14,13 +14,9 @@ const PRODUCTS = [
     ecoRating: "A+",
     careGuide: "Wash cold on gentle cycle. Hang dry in shade. Iron low if needed. Avoid bleach.",
     color: "#4f772d", // Forest Green
-    mixMatch: {
-      name: "Hemp Canvas Utility Pants",
-      category: "Bottom",
-      material: "100% Organic Hemp Canvas",
-      waterUsage: 90,
-      carbonFootprint: -0.8
-    }
+    colorName: "Forest Green",
+    compatibleCategories: ["Bottom", "Outer"],
+    compatibleColors: ["#f5ebe0", "#6b705c", "#bc6c25"]
   },
   {
     id: "recycled-cotton-tee",
@@ -37,13 +33,9 @@ const PRODUCTS = [
     ecoRating: "A++",
     careGuide: "Machine wash cold with like colors. Air dry flat to save energy. Do not dry clean.",
     color: "#f5ebe0", // Cream
-    mixMatch: {
-      name: "Upcycled Denim Skirt",
-      category: "Bottom",
-      material: "90% Upcycled Cotton Denim",
-      waterUsage: 140,
-      carbonFootprint: 1.1
-    }
+    colorName: "Cream",
+    compatibleCategories: ["Bottom", "Outer"],
+    compatibleColors: ["#4f772d", "#6b705c", "#2a6f97", "#bc6c25"]
   },
   {
     id: "hemp-utility-jacket",
@@ -55,18 +47,14 @@ const PRODUCTS = [
     material: "100% Organic Industrial Hemp Canvas",
     waterUsage: 220, // Liters
     waterSavings: 85, // % savings
-    carbonFootprint: -1.1, // Net negative carbon footprint (carbon sink)
+    carbonFootprint: -1.1, // Net negative carbon footprint
     carbonSavings: 113, // % savings
     ecoRating: "A+++",
     careGuide: "Spot clean when possible. Machine wash cold inside out. Tumble dry low or air dry.",
     color: "#6b705c", // Olive/Sage
-    mixMatch: {
-      name: "Organic Flax Trousers",
-      category: "Bottom",
-      material: "100% Organic Flax Linen",
-      waterUsage: 110,
-      carbonFootprint: 0.6
-    }
+    colorName: "Olive/Sage",
+    compatibleCategories: ["Bottom", "Outer"],
+    compatibleColors: ["#f5ebe0", "#4f772d", "#2a6f97"]
   },
   {
     id: "organic-denim-dress",
@@ -83,13 +71,9 @@ const PRODUCTS = [
     ecoRating: "A",
     careGuide: "Wash only when necessary. Cold wash inside out. Line dry. Indigo color may fade naturally.",
     color: "#2a6f97", // Indigo Blue
-    mixMatch: {
-      name: "Recycled Polyester Cardigan",
-      category: "Outer",
-      material: "100% Recycled Polyester",
-      waterUsage: 70,
-      carbonFootprint: 1.5
-    }
+    colorName: "Indigo Blue",
+    compatibleCategories: ["Outer"],
+    compatibleColors: ["#f5ebe0", "#bc6c25"]
   },
   {
     id: "tencel-wrap-dress",
@@ -106,12 +90,103 @@ const PRODUCTS = [
     ecoRating: "A+",
     careGuide: "Hand wash cold or dry clean with eco-solvents. Dry flat in shade. Do not wring or twist.",
     color: "#bc6c25", // Rust Orange
-    mixMatch: {
-      name: "Linen Crop Shawl",
-      category: "Outer",
-      material: "100% Organic Linen",
-      waterUsage: 50,
-      carbonFootprint: 0.4
-    }
+    colorName: "Rust Orange",
+    compatibleCategories: ["Outer"],
+    compatibleColors: ["#f5ebe0", "#2a6f97", "#4f772d"]
+  },
+  {
+    id: "hemp-canvas-pants",
+    name: "Hemp Canvas Utility Pants",
+    category: "Bottom",
+    description: "Heavyweight pants made of 100% Organic Hemp Canvas, dyed with natural organic plant extracts.",
+    image: "assets/hemp_jacket_card.png",
+    overlayImage: "",
+    material: "100% Organic Hemp Canvas",
+    waterUsage: 90,
+    waterSavings: 90,
+    carbonFootprint: -0.8,
+    carbonSavings: 110,
+    ecoRating: "A++",
+    careGuide: "Wash cold. Dry in shade. Do not bleach.",
+    color: "#6b705c", // Olive/Sage
+    colorName: "Olive/Sage",
+    compatibleCategories: ["Top", "Outer"],
+    compatibleColors: ["#4f772d", "#f5ebe0"]
+  },
+  {
+    id: "upcycled-denim-skirt",
+    name: "Upcycled Denim Skirt",
+    category: "Bottom",
+    description: "Made from upcycled post-consumer denim jeans, reducing textile waste and preserving water.",
+    image: "assets/denim_dress_card.png",
+    overlayImage: "",
+    material: "90% Upcycled Cotton Denim",
+    waterUsage: 140,
+    waterSavings: 94,
+    carbonFootprint: 1.1,
+    carbonSavings: 82,
+    ecoRating: "A",
+    careGuide: "Cold wash inside out. Air dry.",
+    color: "#2a6f97", // Indigo Blue
+    colorName: "Indigo Blue",
+    compatibleCategories: ["Top", "Outer"],
+    compatibleColors: ["#f5ebe0", "#bc6c25"]
+  },
+  {
+    id: "organic-flax-trousers",
+    name: "Organic Flax Trousers",
+    category: "Bottom",
+    description: "Flowy, breathable trousers made from organic flax linen.",
+    image: "assets/linen_shirt_card.png",
+    overlayImage: "",
+    material: "100% Organic Flax Linen",
+    waterUsage: 110,
+    waterSavings: 89,
+    carbonFootprint: 0.6,
+    carbonSavings: 87,
+    ecoRating: "A+",
+    careGuide: "Gentle wash cold. Hang dry. Iron low.",
+    color: "#f5ebe0", // Cream
+    colorName: "Cream",
+    compatibleCategories: ["Top", "Outer"],
+    compatibleColors: ["#6b705c", "#bc6c25"]
+  },
+  {
+    id: "recycled-polyester-cardigan",
+    name: "Recycled Polyester Cardigan",
+    category: "Outer",
+    description: "Cozy knit cardigan made from 100% recycled PET plastic bottles.",
+    image: "assets/wrap_dress_card.png",
+    overlayImage: "",
+    material: "100% Recycled Polyester",
+    waterUsage: 70,
+    waterSavings: 92,
+    carbonFootprint: 1.5,
+    carbonSavings: 80,
+    ecoRating: "A",
+    careGuide: "Cold wash gentle. Dry flat.",
+    color: "#bc6c25", // Rust Orange
+    colorName: "Rust Orange",
+    compatibleCategories: ["Top", "Bottom", "Dress"],
+    compatibleColors: ["#2a6f97", "#f5ebe0"]
+  },
+  {
+    id: "linen-crop-shawl",
+    name: "Linen Crop Shawl",
+    category: "Outer",
+    description: "A lightweight organic linen crop shawl for layer dressing.",
+    image: "assets/linen_shirt_card.png",
+    overlayImage: "",
+    material: "100% Organic Linen",
+    waterUsage: 50,
+    waterSavings: 93,
+    carbonFootprint: 0.4,
+    carbonSavings: 88,
+    ecoRating: "A+",
+    careGuide: "Wash delicate. Hang dry.",
+    color: "#f5ebe0", // Cream
+    colorName: "Cream",
+    compatibleCategories: ["Top", "Bottom", "Dress"],
+    compatibleColors: ["#bc6c25", "#4f772d"]
   }
 ];
