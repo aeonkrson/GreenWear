@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Virtual Fitting Room — GreenWear</title>
+  <link rel="stylesheet" href="css/style.css">
+  
+  <!-- MediaPipe Pose CDN Libraries -->
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js" crossorigin="anonymous"></script>
+</head>
+<body>
+
+  <!-- Ambient Glowing Blobs -->
+  <div class="ambient-glow glow-green"></div>
+  <div class="ambient-glow glow-gold"></div>
+
+  <!-- Header Nav -->
+  <header>
+    <nav class="nav-container">
+      <a href="index.html" class="logo">
+        Green<span>Wear</span>
+      </a>
+      <ul class="nav-links">
+        <li><a href="index.html">Utama</a></li>
+        <li><a href="ar.html" class="active">Virtual Fitting Room</a></li>
+      </ul>
+    </nav>
+  </header>
+
+  <!-- Main Content -->
+  <main>
+    <div class="workspace-grid">
+      
+      <!-- Left Panel: Webcam AR Feed -->
+      <section class="camera-panel" id="camera-viewport">
+        <!-- Corner target designators -->
+        <div class="camera-bracket bracket-tl"></div>
+        <div class="camera-bracket bracket-tr"></div>
+        <div class="camera-bracket bracket-bl"></div>
+        <div class="camera-bracket bracket-br"></div>
+
+        <!-- Video Wrapper for rendering WebAR -->
+        <div class="video-wrapper">
+          <video id="webcam" autoplay playsinline></video>
+          <canvas id="ar-canvas"></canvas>
+        </div>
+
+        <!-- HUD controls overlay -->
+        <div class="camera-hud">
+          <div class="hud-status" id="tracking-status-badge">Menunggu Model...</div>
+          <div class="hud-controls">
+            <button class="hud-btn" id="btn-toggle-skeleton" title="Tampilkan Sensor Body (Skeleton)">🦴</button>
+            <button class="hud-btn" id="btn-mirror" title="Balik Kamera">🔄</button>
+          </div>
+        </div>
+
+        <!-- Loading Screen -->
+        <div class="camera-loading" id="loading-overlay">
+          <div class="spinner"></div>
+          <h3 style="font-family: var(--font-sans); font-size: 1.1rem; font-weight: 600; color: var(--text-primary); margin-bottom: 0.5rem;">Mengunduh Detektor AR...</h3>
+          <p style="font-size: 0.85rem; color: var(--text-muted);">MediaPipe Pose sedang diinisialisasi</p>
+        </div>
+
+        <!-- Fallback Webcam Denied Box -->
+        <div class="camera-fallback" id="webcam-fallback-ui">
+          <div class="fallback-icon">⚠️</div>
+          <h3>Akses Kamera Ditolak</h3>
+          <p>GreenWear memerlukan izin webcam untuk melacak koordinat tubuh Anda secara real-time demi Virtual Fitting Room.</p>
+          <button class="btn btn-primary" id="btn-retry-webcam">Coba Lagi</button>
+        </div>
+      </section>
+
+      <!-- Right Panel: Catalog Selection & Eco Dashboard -->
+      <section class="dashboard-panel">
+        
+        <!-- Catalog Picker -->
+        <div class="catalog-drawer">
+          <h3>Pilih Pakaian</h3>
+          <div class="garment-grid" id="garment-selector-grid">
+            <!-- Dynamically populated from products.js -->
+          </div>
+        </div>
+
+        <!-- Sustainability Stats Dashboard -->
+        <div class="dashboard-card" id="dashboard-details">
+          <div class="dashboard-title-group">
+            <span id="eco-category">Top</span>
+            <h2 id="eco-name">Memuat Produk...</h2>
+          </div>
+
+          <!-- Meters -->
+          <div class="stats-row">
+            <div class="stat-item">
+              <div class="stat-circle">
+                <svg>
+                  <circle class="circle-bg" cx="50" cy="50" r="40"></circle>
+                  <circle class="circle-fill" id="water-fill" cx="50" cy="50" r="40"></circle>
+                </svg>
+                <div class="stat-circle-value" id="water-percent">0%</div>
+              </div>
+              <div class="stat-label">Hemat Air</div>
+              <div class="stat-desc" id="water-saved-desc">0 Liter</div>
+            </div>
+
+            <div class="stat-item">
+              <div class="stat-circle">
+                <svg>
+                  <circle class="circle-bg" cx="50" cy="50" r="40"></circle>
+                  <circle class="circle-fill" id="carbon-fill" cx="50" cy="50" r="40"></circle>
+                </svg>
+                <div class="stat-circle-value" id="carbon-percent">0%</div>
+              </div>
+              <div class="stat-label">Jejak Karbon</div>
+              <div class="stat-desc" id="carbon-saved-desc">0 kg CO₂</div>
+            </div>
+          </div>
+
+          <!-- Description and Specs -->
+          <div class="details-list">
+            <div class="details-row">
+              <span class="details-label">Deskripsi Serat</span>
+              <span class="details-value" id="eco-description">-</span>
+            </div>
+            <div class="details-row">
+              <span class="details-label">Komposisi Kain</span>
+              <span class="details-value" id="eco-material">-</span>
+            </div>
+            <div class="details-row">
+              <span class="details-label">Peringkat Ekologis</span>
+              <span class="details-value badge-rating" id="eco-rating">-</span>
+            </div>
+            <div class="details-row">
+              <span class="details-label">Panduan Perawatan</span>
+              <span class="details-value" id="eco-care">-</span>
+            </div>
+          </div>
+        </div>
+
+      </section>
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <footer>
+    <p>&copy; 2026 GreenWear. Platform Virtual Fitting Room & Mode Berkelanjutan.</p>
+  </footer>
+
+  <!-- Scripts -->
+  <script src="js/products.js"></script>
+  <script src="js/ar.js"></script>
+</body>
+</html>
