@@ -3,63 +3,165 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>GreenWear — Platform Fitting Room & Mode Berkelanjutan Berbasis AR</title>
+  <title>GreenWear — Virtual Fitting Room & Mode Berkelanjutan</title>
   <link rel="stylesheet" href="css/style.css">
+  
+  <!-- MediaPipe Pose CDN Libraries -->
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js" crossorigin="anonymous"></script>
 </head>
 <body>
-
-  <!-- Ambient Glowing Blobs -->
-  <div class="ambient-glow glow-green"></div>
-  <div class="ambient-glow glow-gold"></div>
 
   <!-- Header Nav -->
   <header>
     <nav class="nav-container">
-      <a href="index.html" class="logo">
-        Green<span>Wear</span>
-      </a>
-      <ul class="nav-links">
-        <li><a href="index.html" class="active">Utama</a></li>
-        <li><a href="ar.html">Virtual Fitting Room</a></li>
-      </ul>
+      <a href="index.html" class="logo">GreenWear</a>
     </nav>
   </header>
 
   <!-- Main Content -->
   <main>
-    <!-- Hero Section -->
-    <section class="hero">
-      <div class="badge-eco-indicator" style="display: inline-block; margin-bottom: 1.5rem; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600; font-size: 0.8rem; border: 1px solid var(--border-color); padding: 0.3rem 0.8rem; border-radius: var(--border-radius-sm); background: var(--bg-surface);">
-        Augmented Reality & Sustainable Fashion
-      </div>
-      <h1>Pindai Tag Pakaian,<br>Ukur Dampak <span>Ekologis</span> Anda</h1>
-      <p>Hubungkan gaya berpakaian Anda dengan kelestarian bumi. GreenWear menyajikan transparansi material, penghematan air, serta emisi karbon secara interaktif langsung di depan tubuh Anda menggunakan teknologi AR.</p>
-      <div class="hero-btns">
-        <a href="ar.html" class="btn btn-primary">Buka Fitting Room</a>
-        <a href="#edukasi" class="btn btn-secondary">Pelajari Dampak</a>
-      </div>
-    </section>
+    <div class="workspace-grid">
+      
+      <!-- Left Panel: Webcam AR Feed -->
+      <section class="camera-panel" id="camera-viewport">
+        <!-- Corner target designators -->
+        <div class="camera-bracket bracket-tl"></div>
+        <div class="camera-bracket bracket-tr"></div>
+        <div class="camera-bracket bracket-bl"></div>
+        <div class="camera-bracket bracket-br"></div>
 
-    <!-- Info/Educational Section -->
-    <section id="edukasi" style="padding-top: 2rem;">
-      <div class="info-section">
-        <div class="info-card">
-          <div class="info-icon">💧</div>
-          <h3>Konsumsi Air</h3>
-          <p>Satu kaos katun biasa membutuhkan 2.700 liter air dalam produksinya. GreenWear membantu Anda mengidentifikasi alternatif kain yang menghemat air hingga 95%.</p>
+        <!-- Video Wrapper for rendering WebAR -->
+        <div class="video-wrapper">
+          <video id="webcam" autoplay playsinline></video>
+          <canvas id="ar-canvas"></canvas>
         </div>
-        <div class="info-card">
-          <div class="info-icon">🌱</div>
-          <h3>Jejak Karbon</h3>
-          <p>Membantu melacak jejak karbon (carbon footprint) pakaian Anda. Ketahui pakaian mana yang menyerap emisi CO2 lebih banyak daripada yang dilepaskan selama produksi.</p>
+
+        <!-- Scan feedback banner (Flowchart Step 5a) -->
+        <div class="scan-feedback-banner" id="scan-feedback-banner">
+          Tag tidak terdeteksi. Posisikan tubuh di depan kamera.
         </div>
-        <div class="info-card">
-          <div class="info-icon">🔬</div>
-          <h3>Transparansi Serat</h3>
-          <p>Ketahui persis komposisi serat kain Anda. Kami mempromosikan bahan ramah lingkungan seperti rami organik, Tencel, dan katun daur ulang.</p>
+
+        <!-- HUD controls overlay -->
+        <div class="camera-hud" id="camera-hud" style="display: none;">
+          <div class="hud-status" id="tracking-status-badge">Menunggu Model...</div>
+          <div class="hud-controls">
+            <button class="hud-btn" id="btn-toggle-skeleton" title="Tampilkan Sensor Body (Skeleton)">🦴</button>
+            <button class="hud-btn" id="btn-mirror" title="Balik Kamera">🔄</button>
+          </div>
         </div>
-      </div>
-    </section>
+
+        <!-- Initial Disabled Camera Cover -->
+        <div class="camera-disabled-cover" id="camera-disabled-cover">
+          <div class="cover-icon">📷</div>
+          <h3>Kamera AR Nonaktif</h3>
+          <p>Aktifkan kamera untuk memindai tag pakaian secara real-time, atau lewati untuk langsung melihat informasi produk dan rekomendasi.</p>
+          <div class="cover-actions">
+            <button class="btn btn-primary" id="btn-start-camera">Aktifkan Kamera AR</button>
+            <button class="btn btn-secondary" id="btn-skip-camera">Lewati ke Detail Produk</button>
+          </div>
+        </div>
+
+        <!-- Loading Screen -->
+        <div class="camera-loading" id="loading-overlay" style="display: none;">
+          <div class="spinner"></div>
+          <h3>Mengunduh Detektor AR...</h3>
+          <p>MediaPipe Pose sedang diinisialisasi</p>
+        </div>
+
+        <!-- Fallback Webcam Denied Box -->
+        <div class="camera-fallback" id="webcam-fallback-ui" style="display: none;">
+          <div class="fallback-icon">⚠️</div>
+          <h3>Akses Kamera Ditolak</h3>
+          <p>Izin kamera diblokir. Harap aktifkan izin kamera atau gunakan tombol lewati untuk melihat data produk.</p>
+          <div class="cover-actions">
+            <button class="btn btn-primary" id="btn-retry-webcam">Coba Lagi</button>
+            <button class="btn btn-secondary" id="btn-skip-camera-fallback">Lewati ke Detail Produk</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Right Panel: Catalog Selection & Eco Dashboard -->
+      <section class="dashboard-panel">
+        
+        <!-- Catalog Picker -->
+        <div class="catalog-drawer" id="catalog-drawer" style="display: none;">
+          <h3>Pilih Pakaian</h3>
+          <div class="garment-grid" id="garment-selector-grid">
+            <!-- Dynamically populated from products.js -->
+          </div>
+        </div>
+
+        <!-- Sustainability Stats Dashboard -->
+        <div class="dashboard-card" id="dashboard-details" style="display: none;">
+          <div class="dashboard-title-group">
+            <span id="eco-category">Top</span>
+            <h2 id="eco-name">Memuat Produk...</h2>
+          </div>
+
+          <!-- Meters -->
+          <div class="stats-row">
+            <div class="stat-item">
+              <div class="stat-circle">
+                <svg>
+                  <circle class="circle-bg" cx="50" cy="50" r="40"></circle>
+                  <circle class="circle-fill" id="water-fill" cx="50" cy="50" r="40"></circle>
+                </svg>
+                <div class="stat-circle-value" id="water-percent">0%</div>
+              </div>
+              <div class="stat-label">Hemat Air</div>
+              <div class="stat-desc" id="water-saved-desc">0 Liter</div>
+            </div>
+
+            <div class="stat-item">
+              <div class="stat-circle">
+                <svg>
+                  <circle class="circle-bg" cx="50" cy="50" r="40"></circle>
+                  <circle class="circle-fill" id="carbon-fill" cx="50" cy="50" r="40"></circle>
+                </svg>
+                <div class="stat-circle-value" id="carbon-percent">0%</div>
+              </div>
+              <div class="stat-label">Jejak Karbon</div>
+              <div class="stat-desc" id="carbon-saved-desc">0 kg CO₂</div>
+            </div>
+          </div>
+
+          <!-- Description and Specs -->
+          <div class="details-list">
+            <div class="details-row">
+              <span class="details-label">Deskripsi Serat</span>
+              <span class="details-value" id="eco-description">-</span>
+            </div>
+            <div class="details-row">
+              <span class="details-label">Komposisi Kain</span>
+              <span class="details-value" id="eco-material">-</span>
+            </div>
+            <div class="details-row">
+              <span class="details-label">Peringkat Ekologis</span>
+              <span class="details-value badge-rating" id="eco-rating">-</span>
+            </div>
+            <div class="details-row" style="margin-bottom: 1.5rem;">
+              <span class="details-label">Panduan Perawatan</span>
+              <span class="details-value" id="eco-care">-</span>
+            </div>
+          </div>
+
+          <!-- Mix & Match Recommendation Panel -->
+          <div class="mix-match-section">
+            <h3>Rekomendasi Outfit (Mix & Match)</h3>
+            <div class="mix-match-card">
+              <span class="mix-match-icon" id="mix-icon">👖</span>
+              <div class="mix-match-info">
+                <h4 id="mix-name">Memuat Rekomendasi...</h4>
+                <p id="mix-material">-</p>
+                <span class="mix-category" id="mix-category">Bottom</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </section>
+    </div>
   </main>
 
   <!-- Footer -->
@@ -69,6 +171,6 @@
 
   <!-- Scripts -->
   <script src="js/products.js"></script>
-  <script src="js/main.js"></script>
+  <script src="js/ar.js"></script>
 </body>
 </html>
