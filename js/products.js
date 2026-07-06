@@ -13,7 +13,14 @@ const PRODUCTS = [
     carbonSavings: 85, // % savings
     ecoRating: "A+",
     careGuide: "Wash cold on gentle cycle. Hang dry in shade. Iron low if needed. Avoid bleach.",
-    color: "#4f772d" // Forest Green
+    color: "#4f772d", // Forest Green
+    mixMatch: {
+      name: "Hemp Canvas Utility Pants",
+      category: "Bottom",
+      material: "100% Organic Hemp Canvas",
+      waterUsage: 90,
+      carbonFootprint: -0.8
+    }
   },
   {
     id: "recycled-cotton-tee",
@@ -29,7 +36,14 @@ const PRODUCTS = [
     carbonSavings: 89, // % savings
     ecoRating: "A++",
     careGuide: "Machine wash cold with like colors. Air dry flat to save energy. Do not dry clean.",
-    color: "#f5ebe0" // Cream
+    color: "#f5ebe0", // Cream
+    mixMatch: {
+      name: "Upcycled Denim Skirt",
+      category: "Bottom",
+      material: "90% Upcycled Cotton Denim",
+      waterUsage: 140,
+      carbonFootprint: 1.1
+    }
   },
   {
     id: "hemp-utility-jacket",
@@ -45,7 +59,14 @@ const PRODUCTS = [
     carbonSavings: 113, // % savings
     ecoRating: "A+++",
     careGuide: "Spot clean when possible. Machine wash cold inside out. Tumble dry low or air dry.",
-    color: "#6b705c" // Olive/Sage
+    color: "#6b705c", // Olive/Sage
+    mixMatch: {
+      name: "Organic Flax Trousers",
+      category: "Bottom",
+      material: "100% Organic Flax Linen",
+      waterUsage: 110,
+      carbonFootprint: 0.6
+    }
   },
   {
     id: "organic-denim-dress",
@@ -61,7 +82,14 @@ const PRODUCTS = [
     carbonSavings: 72, // % savings
     ecoRating: "A",
     careGuide: "Wash only when necessary. Cold wash inside out. Line dry. Indigo color may fade naturally.",
-    color: "#2a6f97" // Indigo Blue
+    color: "#2a6f97", // Indigo Blue
+    mixMatch: {
+      name: "Recycled Polyester Cardigan",
+      category: "Outer",
+      material: "100% Recycled Polyester",
+      waterUsage: 70,
+      carbonFootprint: 1.5
+    }
   },
   {
     id: "tencel-wrap-dress",
@@ -77,6 +105,13 @@ const PRODUCTS = [
     carbonSavings: 83, // % savings
     ecoRating: "A+",
     careGuide: "Hand wash cold or dry clean with eco-solvents. Dry flat in shade. Do not wring or twist.",
-    color: "#bc6c25" // Rust Orange
+    color: "#bc6c25", // Rust Orange
+    mixMatch: {
+      name: "Linen Crop Shawl",
+      category: "Outer",
+      material: "100% Organic Linen",
+      waterUsage: 50,
+      carbonFootprint: 0.4
+    }
   }
 ];

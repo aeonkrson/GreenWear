@@ -5,18 +5,30 @@ document.addEventListener("DOMContentLoaded", () => {
   
   const loadingOverlay = document.getElementById("loading-overlay");
   const fallbackUI = document.getElementById("webcam-fallback-ui");
+  const cameraCover = document.getElementById("camera-disabled-cover");
+  const scanFeedback = document.getElementById("scan-feedback-banner");
+  
+  const startCameraBtn = document.getElementById("btn-start-camera");
+  const skipCameraBtn = document.getElementById("btn-skip-camera");
+  const skipCameraFallbackBtn = document.getElementById("btn-skip-camera-fallback");
   const retryBtn = document.getElementById("btn-retry-webcam");
+  
   const toggleSkeletonBtn = document.getElementById("btn-toggle-skeleton");
   const mirrorBtn = document.getElementById("btn-mirror");
   const trackingStatusBadge = document.getElementById("tracking-status-badge");
+  const cameraHud = document.getElementById("camera-hud");
+  
+  const catalogDrawer = document.getElementById("catalog-drawer");
+  const dashboardDetails = document.getElementById("dashboard-details");
   
   let activeProduct = PRODUCTS[0];
   let showSkeleton = false;
   let isMirrored = true;
   let trackingActive = false;
   let activeStream = null;
+  let hasBypassed = false;
   
-  // Pre-load garment overlay images for instant rendering
+  // Pre-load garment overlay images
   const garmentImages = {};
   PRODUCTS.forEach(p => {
     const img = new Image();
@@ -24,7 +36,7 @@ document.addEventListener("DOMContentLoaded", () => {
     garmentImages[p.id] = img;
   });
 
-  // 1. Render Catalog Selector
+  // 1. Render Catalog Selector Grid
   const catalogGrid = document.getElementById("garment-selector-grid");
   if (catalogGrid) {
     catalogGrid.innerHTML = PRODUCTS.map((product, idx) => `
@@ -48,7 +60,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // 2. Initialize Dashboard Data
+  // Initialize Dashboard with first product (but hidden initially until activated or bypassed)
   updateDashboard(activeProduct);
 
   function updateDashboard(product) {
@@ -59,12 +71,10 @@ document.addEventListener("DOMContentLoaded", () => {
     
     const ratingBadge = document.getElementById("eco-rating");
     ratingBadge.textContent = product.ecoRating;
-    ratingBadge.className = "details-value badge-rating";
     
     document.getElementById("eco-care").textContent = product.careGuide;
     
     // Animate Circular Progress Rings
-    // Max values for calculation
     const maxWaterSaved = 100;
     const maxCarbonSaved = 120;
     
@@ -73,6 +83,20 @@ document.addEventListener("DOMContentLoaded", () => {
     
     updateCirclePercent("carbon-fill", "carbon-percent", product.carbonSavings, maxCarbonSaved);
     document.getElementById("carbon-saved-desc").textContent = `Kurang ${product.carbonFootprint}kg CO₂`;
+    
+    // Render Mix & Match recommendation (Flowchart Steps 9 & 10)
+    if (product.mixMatch) {
+      const mix = product.mixMatch;
+      let mixIcon = "👖"; // default Bottom
+      if (mix.category === "Outer") mixIcon = "🧥";
+      if (mix.category === "Top") mixIcon = "👕";
+      if (mix.category === "Dress") mixIcon = "👗";
+      
+      document.getElementById("mix-icon").textContent = mixIcon;
+      document.getElementById("mix-name").textContent = mix.name;
+      document.getElementById("mix-material").textContent = `${mix.material} • Hemat ${mix.waterUsage}L air`;
+      document.getElementById("mix-category").textContent = mix.category;
+    }
   }
 
   function updateCirclePercent(circleId, textId, percentValue, maxValue) {
@@ -80,7 +104,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const text = document.getElementById(textId);
     if (!circle || !text) return;
     
-    // Animate fill path using SVG stroke offset
     const radius = 40;
     const circumference = 2 * Math.PI * radius; // 251.2
     const offset = circumference - (percentValue / 100) * circumference;
@@ -89,15 +112,12 @@ document.addEventListener("DOMContentLoaded", () => {
     text.textContent = `${percentValue}%`;
   }
 
-  // 3. WebAR - Initialize Camera & MediaPipe Pose
-  let poseInstance = null;
-  let activeCamera = null;
-
+  // 2. Camera Access Control & Bypass
   function initCamera() {
+    cameraCover.style.display = "none";
     loadingOverlay.style.display = "flex";
     fallbackUI.style.display = "none";
     
-    // Request webcam access
     navigator.mediaDevices.getUserMedia({ 
       video: { 
         width: { ideal: 640 }, 
@@ -110,17 +130,28 @@ document.addEventListener("DOMContentLoaded", () => {
       activeStream = stream;
       webcamElement.srcObject = stream;
       webcamElement.addEventListener("loadedmetadata", () => {
-        // Set canvas sizing matching video stream ratio
         canvasElement.width = webcamElement.videoWidth;
         canvasElement.height = webcamElement.videoHeight;
         
-        // Start MediaPipe
-        startMediaPipe();
+        // Show scan tracer feedback banner initially (Flowchart Step 5a)
+        scanFeedback.style.display = "block";
+        scanFeedback.textContent = "🔍 Memindai Tag Pakaian...";
+        
+        // Simulate Scan detection loop (Step 5)
+        setTimeout(() => {
+          scanFeedback.style.display = "none";
+          // Transition to success & retrieve product data (Steps 6 & 7)
+          loadingOverlay.style.display = "none";
+          cameraHud.style.display = "flex";
+          catalogDrawer.style.display = "block";
+          dashboardDetails.style.display = "block";
+          
+          startMediaPipe();
+        }, 2200);
       });
     })
     .catch((err) => {
       console.error("Camera access denied or error:", err);
-      // Show gray fallback warning box
       loadingOverlay.style.display = "none";
       fallbackUI.style.display = "flex";
       trackingStatusBadge.textContent = "Kamera Ditolak";
@@ -128,9 +159,39 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  function startMediaPipe() {
-    if (poseInstance) return; // already started
+  // Bypass webcam (directly skips to product detail/mixmatch display)
+  function bypassCamera() {
+    hasBypassed = true;
+    cameraCover.style.display = "none";
+    fallbackUI.style.display = "none";
+    loadingOverlay.style.display = "none";
     
+    // Open features panels directly
+    catalogDrawer.style.display = "block";
+    dashboardDetails.style.display = "block";
+    
+    // Draw static helper text on canvas indicating webcam bypassed
+    canvasElement.width = 640;
+    canvasElement.height = 480;
+    drawBypassScreen();
+  }
+
+  function drawBypassScreen() {
+    canvasCtx.fillStyle = "#efeae0";
+    canvasCtx.fillRect(0, 0, canvasElement.width, canvasElement.height);
+    
+    canvasCtx.fillStyle = "#122c20";
+    canvasCtx.font = "italic 500 1.25rem Lora";
+    canvasCtx.textAlign = "center";
+    canvasCtx.fillText("Kamera AR Dihindari", canvasElement.width / 2, canvasElement.height / 2 - 20);
+    
+    canvasCtx.fillStyle = "#647d70";
+    canvasCtx.font = "14px Inter";
+    canvasCtx.fillText("Memilih produk di katalog kanan untuk melihat data langsung.", canvasElement.width / 2, canvasElement.height / 2 + 10);
+  }
+
+  // 3. MediaPipe Pose tracking
+  function startMediaPipe() {
     poseInstance = new Pose({
       locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`
     });
@@ -144,12 +205,11 @@ document.addEventListener("DOMContentLoaded", () => {
     
     poseInstance.onResults(onResults);
     
-    // Setup camera rendering frames loop
     const fps = 30;
     let lastTime = 0;
     
     function renderLoop(time) {
-      if (!activeStream) return;
+      if (!activeStream || hasBypassed) return;
       
       if (time - lastTime >= 1000 / fps) {
         poseInstance.send({ image: webcamElement })
@@ -161,19 +221,12 @@ document.addEventListener("DOMContentLoaded", () => {
     requestAnimationFrame(renderLoop);
   }
 
-  // Draw overlay shirt on canvas based on Pose Landmark Coordinates
   function onResults(results) {
-    // Hide loader overlay on first successful tracking frame
-    if (loadingOverlay.style.display !== "none") {
-      loadingOverlay.style.display = "none";
-      document.getElementById("camera-viewport").classList.add("tracking");
-    }
+    if (hasBypassed) return;
     
-    // Clear canvas
     canvasCtx.save();
     canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
     
-    // Draw mirrored video stream frame
     if (isMirrored) {
       canvasCtx.translate(canvasElement.width, 0);
       canvasCtx.scale(-1, 1);
@@ -185,14 +238,13 @@ document.addEventListener("DOMContentLoaded", () => {
         trackingActive = true;
         trackingStatusBadge.textContent = "Tracking Aktif";
         trackingStatusBadge.className = "hud-status active";
+        scanFeedback.style.display = "none";
       }
 
-      // Draw sensor skeleton bones if toggled (for tech presentations)
       if (showSkeleton) {
         drawSkeleton(results.poseLandmarks);
       }
       
-      // Render garment overlay mapping coordinates
       drawGarmentOverlay(results.poseLandmarks);
       
     } else {
@@ -201,12 +253,15 @@ document.addEventListener("DOMContentLoaded", () => {
         trackingStatusBadge.textContent = "Mencari Tubuh...";
         trackingStatusBadge.className = "hud-status";
       }
+      
+      // Step 5a: Tag/Body not detected feedback warning
+      scanFeedback.style.display = "block";
+      scanFeedback.innerHTML = "⚠️ Tag/Tubuh tidak terdeteksi. Posisikan badan di tengah.";
     }
     
     canvasCtx.restore();
   }
 
-  // Draw 2D clothing image scaled and rotated over detected torso coordinates
   function drawGarmentOverlay(landmarks) {
     const lShoulder = landmarks[11];
     const rShoulder = landmarks[12];
@@ -215,34 +270,28 @@ document.addEventListener("DOMContentLoaded", () => {
     
     if (!lShoulder || !rShoulder) return;
     
-    // Canvas conversion values
     const scaleX = canvasElement.width;
     const scaleY = canvasElement.height;
     
     const shoulderX = ((lShoulder.x + rShoulder.x) / 2) * scaleX;
     const shoulderY = ((lShoulder.y + rShoulder.y) / 2) * scaleY;
     
-    // Distance between shoulders
     const dx = (rShoulder.x - lShoulder.x) * scaleX;
     const dy = (rShoulder.y - lShoulder.y) * scaleY;
     const shoulderDist = Math.sqrt(dx * dx + dy * dy);
-    
-    // Compute angle of shoulder tilt
     const angle = Math.atan2(dy, dx);
     
-    // Determine overlay size scaling
     let overlayWidth = shoulderDist * 1.8;
-    let overlayHeight = overlayWidth * 1.25; // default ratio
+    let overlayHeight = overlayWidth * 1.25;
     
     if (lHip && rHip) {
       const hipX = ((lHip.x + rHip.x) / 2) * scaleX;
       const hipY = ((lHip.y + rHip.y) / 2) * scaleY;
       const heightDist = Math.sqrt(Math.pow(hipX - shoulderX, 2) + Math.pow(hipY - shoulderY, 2));
-      overlayHeight = heightDist * 1.5; // Scale height based on spine length
+      overlayHeight = heightDist * 1.5;
     }
     
-    // Adjust size/offset based on dress category vs top
-    let yOffset = overlayHeight * 0.1; // offset collar downwards
+    let yOffset = overlayHeight * 0.1;
     if (activeProduct.category === "Dress") {
       overlayWidth = shoulderDist * 2.1;
       overlayHeight = overlayWidth * 2.1;
@@ -253,11 +302,9 @@ document.addEventListener("DOMContentLoaded", () => {
     
     if (garmentImg && garmentImg.complete) {
       canvasCtx.save();
-      // Translate context to center of shoulders
       canvasCtx.translate(shoulderX, shoulderY + yOffset);
       canvasCtx.rotate(angle);
       
-      // Draw centered garment overlay
       canvasCtx.drawImage(
         garmentImg, 
         -overlayWidth / 2, 
@@ -269,18 +316,14 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  // Draw 2D skeletal nodes for styling and presentation
   function drawSkeleton(landmarks) {
     const connections = [
-      [11, 12], // shoulder-to-shoulder
-      [11, 23], // left shoulder to hip
-      [12, 24], // right shoulder to hip
-      [23, 24]  // hip-to-hip
+      [11, 12], [11, 23], [12, 24], [23, 24]
     ];
     
     canvasCtx.lineWidth = 3;
-    canvasCtx.strokeStyle = "rgba(0, 245, 212, 0.7)"; // Cyan neon tracer lines
-    canvasCtx.fillStyle = "rgba(59, 255, 20, 0.9)";   // Green glowing nodes
+    canvasCtx.strokeStyle = "rgba(0, 150, 136, 0.8)"; 
+    canvasCtx.fillStyle = "rgba(11, 135, 86, 0.9)";   
     
     connections.forEach(([i1, i2]) => {
       const pt1 = landmarks[i1];
@@ -293,7 +336,6 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     });
     
-    // Draw joints
     [11, 12, 23, 24].forEach(idx => {
       const pt = landmarks[idx];
       if (pt) {
@@ -305,6 +347,18 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // 4. Hook up Buttons
+  startCameraBtn.addEventListener("click", () => {
+    initCamera();
+  });
+  
+  skipCameraBtn.addEventListener("click", () => {
+    bypassCamera();
+  });
+  
+  skipCameraFallbackBtn.addEventListener("click", () => {
+    bypassCamera();
+  });
+  
   retryBtn.addEventListener("click", () => {
     initCamera();
   });
@@ -319,8 +373,11 @@ document.addEventListener("DOMContentLoaded", () => {
     isMirrored = !isMirrored;
     mirrorBtn.style.borderColor = isMirrored ? "var(--accent-glow)" : "var(--border-color)";
     mirrorBtn.style.color = isMirrored ? "var(--accent-glow)" : "var(--text-primary)";
+    
+    if (hasBypassed) {
+      drawBypassScreen();
+    }
   });
 
-  // Start Fitting Room Camera on Load
-  initCamera();
+  // Note: We DO NOT auto-start camera here (Webcam disabled on load per user request).
 });
